@@ -140,7 +140,7 @@ class DCGAN(object):
 
     self.d_loss_real_sum = scalar_summary("d_loss_real", self.d_loss_real)
     self.d_loss_fake_sum = scalar_summary("d_loss_fake", self.d_loss_fake)
-                          
+
     self.d_loss = self.d_loss_real + self.d_loss_fake
 
     self.g_loss_sum = scalar_summary("g_loss", self.g_loss)
@@ -167,10 +167,10 @@ class DCGAN(object):
       self.G_sum, self.d_loss_fake_sum, self.g_loss_sum])
     self.d_sum = merge_summary(
         [self.z_sum, self.d_sum, self.d_loss_real_sum, self.d_loss_sum])
-    self.writer = SummaryWriter("./logs", self.sess.graph)
+    self.writer = SummaryWriter("./logs/" + self.model_dir, self.sess.graph)
 
     sample_z = np.random.uniform(-1, 1, size=(self.sample_num , self.z_dim))
-    
+
     if config.dataset == 'mnist':
       sample_inputs = self.data_X[0:self.sample_num]
       sample_labels = self.data_y[0:self.sample_num]
@@ -188,7 +188,7 @@ class DCGAN(object):
         sample_inputs = np.array(sample).astype(np.float32)[:, :, :, None]
       else:
         sample_inputs = np.array(sample).astype(np.float32)
-  
+
     counter = 1
     start_time = time.time()
     could_load, checkpoint_counter = self.load(self.checkpoint_dir)
@@ -198,10 +198,15 @@ class DCGAN(object):
     else:
       print(" [!] Load failed...")
 
+    sample_dir = "./{}/{}/".format(config.sample_dir, self.model_dir)
+
+    if not os.path.exists(sample_dir):
+      os.makedirs(sample_dir)
+
     for epoch in xrange(config.epoch):
       if config.dataset == 'mnist':
         batch_idxs = min(len(self.data_X), config.train_size) // config.batch_size
-      else:      
+      else:
         self.data = glob(os.path.join(
           "./data", config.dataset, self.input_fname_pattern))
         batch_idxs = min(len(self.data), config.train_size) // config.batch_size
@@ -278,7 +283,23 @@ class DCGAN(object):
           _, summary_str = self.sess.run([g_optim, self.g_sum],
             feed_dict={ self.z: batch_z })
           self.writer.add_summary(summary_str, counter)
-          
+          """
+          # Run g_optim twice to make sure that d_loss does not go to zero (different from paper)
+          _, summary_str = self.sess.run([g_optim, self.g_sum],
+            feed_dict={ self.z: batch_z })
+          self.writer.add_summary(summary_str, counter)
+
+          # Run g_optim twice to make sure that d_loss does not go to zero (different from paper)
+          _, summary_str = self.sess.run([g_optim, self.g_sum],
+            feed_dict={ self.z: batch_z })
+          self.writer.add_summary(summary_str, counter)
+
+          # Run g_optim twice to make sure that d_loss does not go to zero (different from paper)
+          _, summary_str = self.sess.run([g_optim, self.g_sum],
+            feed_dict={ self.z: batch_z })
+          self.writer.add_summary(summary_str, counter)
+          """
+
           errD_fake = self.d_loss_fake.eval({ self.z: batch_z })
           errD_real = self.d_loss_real.eval({ self.inputs: batch_images })
           errG = self.g_loss.eval({self.z: batch_z})
@@ -301,8 +322,8 @@ class DCGAN(object):
             manifold_h = int(np.ceil(np.sqrt(samples.shape[0])))
             manifold_w = int(np.floor(np.sqrt(samples.shape[0])))
             save_images(samples, [manifold_h, manifold_w],
-                  './{}/train_{:02d}_{:04d}.png'.format(config.sample_dir, epoch, idx))
-            print("[Sample] d_loss: %.8f, g_loss: %.8f" % (d_loss, g_loss)) 
+                  '{}/train_{:02d}_{:04d}.png'.format(sample_dir, epoch, idx))
+            print("[Sample] d_loss: %.8f, g_loss: %.8f" % (d_loss, g_loss))
           else:
             try:
               samples, d_loss, g_loss = self.sess.run(
@@ -315,8 +336,8 @@ class DCGAN(object):
               manifold_h = int(np.ceil(np.sqrt(samples.shape[0])))
               manifold_w = int(np.floor(np.sqrt(samples.shape[0])))
               save_images(samples, [manifold_h, manifold_w],
-                    './{}/train_{:02d}_{:04d}.png'.format(config.sample_dir, epoch, idx))
-              print("[Sample] d_loss: %.8f, g_loss: %.8f" % (d_loss, g_loss)) 
+                    '{}/train_{:02d}_{:04d}.png'.format(sample_dir, epoch, idx))
+              print("[Sample] d_loss: %.8f, g_loss: %.8f" % (d_loss, g_loss))
             except:
               print("one pic error!...")
 
